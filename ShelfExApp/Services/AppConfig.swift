@@ -19,4 +19,8 @@ enum AppConfig {
     static var ocrServerURL: String {
         "http://104.39.137.8:8000/analyze"
     }
+
+    static var recipeServerURL: String {
+        "http://localhost:8001/recipes"
+    }
 }

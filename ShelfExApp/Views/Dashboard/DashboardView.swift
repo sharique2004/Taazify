@@ -8,6 +8,7 @@ struct DashboardView: View {
     @State private var searchQuery: String = ""
     @State private var showConsumeAlert: Product?
     @State private var showTossAlert: Product?
+    @State private var showRecipeSheet = false
 
     var filteredProducts: [Product] {
         var products = store.activeProducts
@@ -116,6 +117,10 @@ struct DashboardView: View {
                 }
             }
         }
+        .sheet(isPresented: $showRecipeSheet) {
+            RecipeView()
+                .environmentObject(store)
+        }
     }
 
     // MARK: - Stats Row
@@ -126,6 +131,30 @@ struct DashboardView: View {
             StatPill(count: s.green, label: "Fresh", color: .green)
             StatPill(count: s.yellow, label: "Soon", color: .orange)
             StatPill(count: s.red, label: "Expired", color: .red)
+
+            // AI Recipe Button
+            Button {
+                showRecipeSheet = true
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "sparkles")
+                        .font(.caption)
+                    Text("AI Recipe")
+                        .font(.caption2.weight(.bold))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    LinearGradient(
+                        colors: [Color(hex: "6C63FF"), Color(hex: "A78BFA")],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .clipShape(Capsule())
+                .shadow(color: Color(hex: "6C63FF").opacity(0.3), radius: 4, y: 2)
+            }
         }
     }
 
