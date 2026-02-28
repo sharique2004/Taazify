@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // MARK: - Product Freshness Status (port of statusEngine.js)
 
@@ -106,3 +109,179 @@ extension Color {
         )
     }
 }
+
+// MARK: - Cartoon Theme
+
+enum CartoonTheme {
+    static let primary = Color(hex: "2E9F57")
+    static let primaryDeep = Color(hex: "1F7A41")
+    static let accent = Color(hex: "BEEB74")
+    static let pageTop = Color(hex: "F2FFE8")
+    static let pageBottom = Color(hex: "DAF4C4")
+    static let card = Color.white.opacity(0.92)
+    static let cardStroke = Color(hex: "95C987").opacity(0.55)
+    static let title = Color(hex: "1B3A26")
+
+    static var pageGradient: LinearGradient {
+        LinearGradient(colors: [pageTop, pageBottom], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    static var buttonGradient: LinearGradient {
+        LinearGradient(colors: [primary, primaryDeep], startPoint: .leading, endPoint: .trailing)
+    }
+}
+
+struct CartoonPageBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .background(
+                ZStack {
+                    CartoonTheme.pageGradient
+                    Circle()
+                        .fill(Color.white.opacity(0.35))
+                        .frame(width: 220, height: 220)
+                        .offset(x: -130, y: -300)
+                    Circle()
+                        .fill(CartoonTheme.accent.opacity(0.35))
+                        .frame(width: 260, height: 260)
+                        .offset(x: 160, y: 260)
+                }
+                .ignoresSafeArea()
+            )
+    }
+}
+
+extension View {
+    func cartoonPageBackground() -> some View {
+        modifier(CartoonPageBackground())
+    }
+}
+
+// MARK: - Pantry Item Image Resolver
+
+#if canImport(UIKit)
+enum PantryItemImageResolver {
+    private static let fileAliases: [String: String] = [
+        "wholemilk": "milk",
+        "skimmilk": "milk",
+        "almondmilk": "milk",
+        "oatmilk": "milk",
+        "cheddar": "cheese",
+        "mozzarella": "cheese",
+        "cheese": "cheese",
+        "chickenbreast": "chicken",
+        "groundbeef": "beef",
+        "steak": "beef",
+        "porkchops": "pork",
+        "eggs": "eggs",
+        "banana": "bananas",
+        "bananas": "bananas",
+        "strawberry": "strawberries",
+        "strawberries": "strawberries",
+        "blueberry": "blueberries",
+        "blueberries": "blueberries",
+        "berries": "berries",
+        "lettuce": "lettus",
+        "raspberry": "rassberries",
+        "raspberries": "rassberries"
+    ]
+
+    private static let supportedExtensions: Set<String> = ["png", "jpg", "jpeg", "heic", "webp"]
+
+    private static let imageFiles: [(key: String, url: URL)] = {
+        guard let urls = Bundle.main.urls(forResourcesWithExtension: nil, subdirectory: "Images") else {
+            return []
+        }
+
+        return urls.compactMap { url in
+            let ext = url.pathExtension.lowercased()
+            guard supportedExtensions.contains(ext) else { return nil }
+            let base = url.deletingPathExtension().lastPathComponent
+            return (normalize(base), url)
+        }
+    }()
+
+    static func image(for productName: String) -> UIImage? {
+        guard !imageFiles.isEmpty else { return nil }
+
+        let normalizedName = normalize(productName)
+        let keys = candidateKeys(for: normalizedName)
+
+        if let exact = firstMatch(for: keys) {
+            return UIImage(contentsOfFile: exact.path)
+        }
+
+        guard let fuzzy = fuzzyMatch(for: keys) else { return nil }
+        return UIImage(contentsOfFile: fuzzy.path)
+    }
+
+    private static func firstMatch(for keys: [String]) -> URL? {
+        for key in keys {
+            if let match = imageFiles.first(where: { $0.key == key }) {
+                return match.url
+            }
+        }
+        return nil
+    }
+
+    private static func fuzzyMatch(for keys: [String]) -> URL? {
+        var best: (score: Int, url: URL)?
+
+        for file in imageFiles {
+            for key in keys {
+                guard key.contains(file.key) || file.key.contains(key) else { continue }
+                let score = min(key.count, file.key.count)
+                if best == nil || score > best!.score {
+                    best = (score, file.url)
+                }
+            }
+        }
+
+        return best?.url
+    }
+
+    private static func candidateKeys(for normalizedName: String) -> [String] {
+        var keys = [normalizedName]
+
+        for (from, to) in fileAliases where normalizedName.contains(from) {
+            keys.append(to)
+        }
+
+        return Array(Set(keys)).filter { !$0.isEmpty }
+    }
+
+    private static func normalize(_ value: String) -> String {
+        value.lowercased().filter { $0.isLetter || $0.isNumber }
+    }
+}
+
+struct PantryItemIcon: View {
+    let name: String
+    let emoji: String
+    var size: CGFloat = 44
+    var cornerRadius: CGFloat = 12
+    var tint: Color = CartoonTheme.primary
+
+    private var itemImage: UIImage? {
+        PantryItemImageResolver.image(for: name)
+    }
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(tint.opacity(0.12))
+
+            if let image = itemImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Text(emoji)
+                    .font(.system(size: size * 0.52))
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}
+#endif

@@ -42,6 +42,19 @@ enum ShelfLifeDatabase {
         "other": 7
     ]
 
+    private static let categoryKeywordHints: [String: [String]] = [
+        "dairy": ["milk", "eggs", "egg", "yogurt", "cheese", "butter", "cream", "half and half"],
+        "meat": ["chicken", "beef", "steak", "pork", "turkey", "bacon", "sausage", "ham", "deli"],
+        "seafood": ["salmon", "shrimp", "fish", "tilapia", "cod", "crab", "tuna"],
+        "fruit": ["banana", "apple", "berry", "grape", "orange", "lemon", "lime", "avocado", "melon", "peach"],
+        "vegetable": ["lettuce", "tomato", "pepper", "broccoli", "carrot", "spinach", "onion", "potato", "garlic", "mushroom", "celery", "cucumber", "zucchini", "corn", "beans"],
+        "bakery": ["bread", "bagel", "tortilla", "muffin", "croissant", "bun", "roll"],
+        "beverage": ["juice", "water", "soda", "coffee", "tea", "drink"],
+        "prepared": ["hummus", "guacamole", "salsa", "tofu", "ravioli", "tortellini", "fresh pasta"],
+        "condiment": ["ketchup", "mustard", "mayo", "mayonnaise", "sauce", "dressing"],
+        "frozen": ["frozen", "ice cream", "pizza", "frz", "frzn"]
+    ]
+
     static let database: [ShelfLifeEntry] = [
         // ── Dairy ──
         ShelfLifeEntry(name: "Whole Milk", keywords: ["milk", "whole milk", "2% milk", "skim milk", "1% milk", "mlk", "pc milk", "2 pc milk"], category: "dairy", emoji: "🥛", shelfDays: 7),
@@ -126,15 +139,37 @@ enum ShelfLifeDatabase {
     ]
 
     static func lookupProduct(_ receiptText: String) -> ShelfLifeLookupResult {
-        let text = receiptText.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let raw = receiptText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else {
+            return ShelfLifeLookupResult(
+                name: "",
+                category: "other",
+                emoji: "📦",
+                shelfDays: categoryDefaults["other"] ?? 7,
+                confidence: "low",
+                source: "default estimate"
+            )
+        }
+
+        let normalizedRaw = normalizeText(raw)
+        let normalizedFromReceipt = normalizeText(ReceiptNormalizer.normalize(raw).normalized)
+        let candidateTexts = Array(Set([normalizedRaw, normalizedFromReceipt])).filter { !$0.isEmpty }
+        let candidateTokenSets = candidateTexts.map(tokenSet)
 
         var bestMatch: ShelfLifeEntry?
         var bestScore = 0
 
         for entry in database {
             for keyword in entry.keywords {
-                if text.contains(keyword) {
-                    let score = keyword.count
+                let normalizedKeyword = normalizeText(keyword)
+                guard !normalizedKeyword.isEmpty else { continue }
+
+                for (index, candidate) in candidateTexts.enumerated() {
+                    let score = keywordScore(
+                        normalizedKeyword: normalizedKeyword,
+                        candidateText: candidate,
+                        candidateTokens: candidateTokenSets[index]
+                    )
                     if score > bestScore {
                         bestScore = score
                         bestMatch = entry
@@ -143,7 +178,7 @@ enum ShelfLifeDatabase {
             }
         }
 
-        if let match = bestMatch {
+        if let match = bestMatch, bestScore >= 80 {
             return ShelfLifeLookupResult(
                 name: match.name,
                 category: match.category,
@@ -154,14 +189,136 @@ enum ShelfLifeDatabase {
             )
         }
 
+        if let match = bestMatch, bestScore >= 55 {
+            return ShelfLifeLookupResult(
+                name: match.name,
+                category: match.category,
+                emoji: match.emoji,
+                shelfDays: match.shelfDays,
+                confidence: "medium",
+                source: "USDA shelf life database (fuzzy match)"
+            )
+        }
+
+        let inferredCategory = inferCategory(from: raw)
+        let category = inferredCategory ?? "other"
+        let shelfDays = categoryDefaults[category] ?? (categoryDefaults["other"] ?? 7)
+
         return ShelfLifeLookupResult(
-            name: receiptText.trimmingCharacters(in: .whitespacesAndNewlines),
-            category: "other",
-            emoji: "📦",
-            shelfDays: categoryDefaults["other"] ?? 7,
+            name: raw,
+            category: category,
+            emoji: emojiForCategory(category),
+            shelfDays: shelfDays,
             confidence: "low",
-            source: "default estimate"
+            source: inferredCategory == nil ? "default estimate" : "category inference fallback"
         )
+    }
+
+    static func inferCategory(from receiptText: String) -> String? {
+        let normalized = normalizeText(receiptText)
+        guard !normalized.isEmpty else { return nil }
+        let tokens = tokenSet(normalized)
+        guard !tokens.isEmpty else { return nil }
+
+        var bestCategory: String?
+        var bestScore = 0
+
+        for (category, hints) in categoryKeywordHints {
+            let score = hints.reduce(into: 0) { partial, hint in
+                let normalizedHint = normalizeText(hint)
+                if normalizedHint.isEmpty { return }
+                if normalized == normalizedHint {
+                    partial += 8
+                    return
+                }
+
+                let hintTokens = Set(normalizedHint.split(separator: " ").map(String.init))
+                if hintTokens.isEmpty { return }
+
+                if hintTokens.isSubset(of: tokens) {
+                    partial += 4 + hintTokens.count
+                } else if hintTokens.count == 1, let single = hintTokens.first, tokens.contains(single) {
+                    partial += 3
+                }
+            }
+
+            if score > bestScore {
+                bestScore = score
+                bestCategory = category
+            }
+        }
+
+        return bestScore >= 3 ? bestCategory : nil
+    }
+
+    static func emojiForCategory(_ category: String) -> String {
+        switch category {
+        case "dairy": return "🥛"
+        case "meat": return "🍗"
+        case "seafood": return "🐟"
+        case "fruit": return "🍎"
+        case "vegetable": return "🥬"
+        case "bakery": return "🍞"
+        case "beverage": return "🥤"
+        case "prepared": return "🍱"
+        case "condiment": return "🫙"
+        case "frozen": return "🧊"
+        default: return "📦"
+        }
+    }
+
+    private static func keywordScore(normalizedKeyword: String, candidateText: String, candidateTokens: Set<String>) -> Int {
+        if normalizedKeyword == candidateText {
+            return 200 + normalizedKeyword.count
+        }
+
+        let paddedKeyword = " \(normalizedKeyword) "
+        let paddedCandidate = " \(candidateText) "
+        if paddedCandidate.contains(paddedKeyword) {
+            return 130 + normalizedKeyword.count
+        }
+
+        let keywordTokens = Set(normalizedKeyword.split(separator: " ").map(String.init))
+        if !keywordTokens.isEmpty && keywordTokens.isSubset(of: candidateTokens) {
+            return keywordTokens.count == 1
+                ? 80 + normalizedKeyword.count
+                : 95 + (keywordTokens.count * 8) + normalizedKeyword.count
+        }
+
+        if keywordTokens.count == 1, let key = keywordTokens.first, key.count >= 4 {
+            let bestPrefix = candidateTokens.map { commonPrefixLength(key, $0) }.max() ?? 0
+            if bestPrefix >= 4 {
+                return 45 + bestPrefix
+            }
+        }
+
+        return 0
+    }
+
+    private static func commonPrefixLength(_ lhs: String, _ rhs: String) -> Int {
+        var count = 0
+        for pair in zip(lhs, rhs) {
+            if pair.0 != pair.1 { break }
+            count += 1
+        }
+        return count
+    }
+
+    private static func normalizeText(_ text: String) -> String {
+        let lower = text.lowercased()
+        let replaced = lower.replacingOccurrences(
+            of: #"[^a-z0-9]+"#,
+            with: " ",
+            options: .regularExpression
+        )
+        return replaced
+            .split(separator: " ")
+            .map(String.init)
+            .joined(separator: " ")
+    }
+
+    private static func tokenSet(_ normalizedText: String) -> Set<String> {
+        Set(normalizedText.split(separator: " ").map(String.init))
     }
 
     static func getCategories() -> [CategoryInfo] {

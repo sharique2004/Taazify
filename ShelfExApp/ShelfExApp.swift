@@ -10,7 +10,8 @@ struct ShelfExApp: App {
             ContentView()
                 .environmentObject(store)
                 .environmentObject(toastManager)
-                .preferredColorScheme(store.prefersDarkMode ? .dark : nil)
+                // Cartoon theme is designed for light mode colors.
+                .preferredColorScheme(.light)
         }
     }
 }

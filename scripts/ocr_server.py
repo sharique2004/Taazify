@@ -82,12 +82,13 @@ IMPORTANT CONTEXT: Receipt text uses POS-abbreviated names. Examples:
 - Trailing letters like J, D, FN, FC, T, N are tax codes, not part of the name.
 - Numbers like 003077206122 are UPC barcodes, ignore them.
 
-Return a JSON object: {"items": [{"name": "<raw receipt text>", "category": "<best guess: GROCERY, CLOTHING, HEALTH, HOME, etc.>", "price": <number>, "quantity": <number>}]}
+Return a JSON object: {"items": [{"name": "<raw receipt text>", "category": "<best guess: GROCERY, CLOTHING, HEALTH, HOME, etc.>", "price": <number>, "quantity": <number>, "shelfDays": <integer, estimated shelf life in days>}]}
 
 Rules:
 - Use the EXACT text from the receipt as the "name" field. Do not expand abbreviations.
 - Skip subtotal, total, tax, payment, and other non-item lines.
 - Include ALL items, even non-food. We filter on the client side.
+- For "shelfDays", estimate the typical shelf life in days (e.g., milk=7, eggs=21, bananas=5, canned goods=365). For non-perishable or non-food items, use 0.
 - Do not invent items. Only extract what you can read.
 - Return ONLY valid JSON, no markdown fences."""
 

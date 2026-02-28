@@ -27,5 +27,9 @@
 	<string>$(SUPABASE_ANON_KEY)</string>
 	<key>SUPABASE_URL</key>
 	<string>$(SUPABASE_URL)</string>
+	<key>COHERE_API_KEY</key>
+	<string>$(COHERE_API_KEY)</string>
+	<key>COHERE_MODEL</key>
+	<string>$(COHERE_MODEL)</string>
 </dict>
 </plist>

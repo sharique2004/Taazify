@@ -2,8 +2,10 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from langchain_ollama import OllamaLLM
+from langchain_cohere import ChatCohere
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+import os
 import json
 
 app = FastAPI()
@@ -16,11 +18,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── LangChain + Ollama Setup ──
-MODEL_NAME = "llama3.1:8b"
-print(f"Initializing LangChain with Ollama model: {MODEL_NAME}")
+# ── LangChain + Cohere Setup ──
+os.environ["COHERE_API_KEY"] = "cr4Yy0FWjrvngxpD6jA9LpOoHEJFdpcjQgrdxT4w"
+MODEL_NAME = "command-a-03-2025"
+print(f"Initializing LangChain with Cohere model: {MODEL_NAME}")
 
-llm = OllamaLLM(model=MODEL_NAME, temperature=0.7)
+llm = ChatCohere(model=MODEL_NAME, temperature=0.4)
 
 RECIPE_PROMPT = ChatPromptTemplate.from_messages([
     ("system", """You are a creative home cook AI. The user will give you a list of ingredients they have in their pantry. Some items are expiring soon and should be prioritized.
@@ -59,7 +62,7 @@ Items expiring soon (USE THESE FIRST): {urgent_items}
 Generate 3 recipes using these ingredients.""")
 ])
 
-chain = RECIPE_PROMPT | llm
+chain = RECIPE_PROMPT | llm | StrOutputParser()
 
 
 class RecipeRequest(BaseModel):
@@ -94,11 +97,11 @@ async def generate_recipes(request: RecipeRequest):
         error_msg = str(e)
         print(f"Error: {error_msg}")
 
-        # Check if Ollama is not running
-        if "Connection refused" in error_msg or "connect" in error_msg.lower():
+        # Check if API key is invalid
+        if "Authentication" in error_msg or "401" in error_msg.lower():
             return {
                 "recipes": [],
-                "error": "Ollama is not running. Start it with: ollama serve"
+                "error": "Invalid Cohere API key."
             }
 
         return {"recipes": [], "error": error_msg}
@@ -106,7 +109,7 @@ async def generate_recipes(request: RecipeRequest):
 
 @app.get("/health")
 async def health():
-    """Health check — also verifies Ollama is reachable."""
+    """Health check — also verifies Cohere is reachable."""
     try:
         test = llm.invoke("Say 'ok'")
         return {"status": "ok", "model": MODEL_NAME}

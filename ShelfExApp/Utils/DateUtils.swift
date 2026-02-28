@@ -65,8 +65,24 @@ enum DateUtils {
 
     static func expiryDateFromCategory(purchaseDate: String, category: String) -> String {
         let days = ShelfLifeDatabase.categoryDefaults[category] ?? ShelfLifeDatabase.categoryDefaults["other"] ?? 7
-        guard let date = dateFormatter.date(from: purchaseDate) else { return daysFromNow(days) }
-        let expiry = Calendar.current.date(byAdding: .day, value: days, to: date) ?? Date()
+        return expiryDateFromShelfLife(purchaseDate: purchaseDate, shelfDays: days)
+    }
+
+    static func expiryDateFromShelfLife(purchaseDate: String, shelfDays: Int) -> String {
+        let clampedDays = max(1, shelfDays)
+        guard let date = dateFormatter.date(from: purchaseDate) else { return daysFromNow(clampedDays) }
+        let expiry = Calendar.current.date(byAdding: .day, value: clampedDays, to: date) ?? Date()
         return dateFormatter.string(from: expiry)
+    }
+
+    static func daysBetween(startDate: String, endDate: String) -> Int? {
+        guard let start = dateFormatter.date(from: startDate),
+              let end = dateFormatter.date(from: endDate) else {
+            return nil
+        }
+
+        let startDay = Calendar.current.startOfDay(for: start)
+        let endDay = Calendar.current.startOfDay(for: end)
+        return Calendar.current.dateComponents([.day], from: startDay, to: endDay).day
     }
 }

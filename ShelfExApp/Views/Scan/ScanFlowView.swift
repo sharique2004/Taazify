@@ -48,6 +48,7 @@ struct ScanFlowView: View {
             }
             .navigationTitle("Add Products")
             .navigationBarTitleDisplayMode(.large)
+            .cartoonPageBackground()
             .sheet(isPresented: $showImagePicker) {
                 ImagePicker(image: $capturedImage)
                     .ignoresSafeArea()
@@ -56,6 +57,9 @@ struct ScanFlowView: View {
                 if let image = newImage {
                     Task { await processImage(image) }
                 }
+            }
+            .onChange(of: purchaseDateStr) { _, newPurchaseDate in
+                refreshDetectedItemsForPurchaseDate(newPurchaseDate)
             }
         }
     }
@@ -67,8 +71,12 @@ struct ScanFlowView: View {
             scanTabButton("📷 Scan Receipt", tab: .scan)
             scanTabButton("✏️ Add Manually", tab: .manual)
         }
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(CartoonTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(CartoonTheme.cardStroke, lineWidth: 1.2)
+        )
     }
 
     private func scanTabButton(_ title: String, tab: ScanTab) -> some View {
@@ -80,8 +88,8 @@ struct ScanFlowView: View {
                 .foregroundColor(activeTab == tab ? .white : .secondary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(activeTab == tab ? Color(hex: "6C63FF") : .clear)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .background(activeTab == tab ? CartoonTheme.primary : .clear)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
     }
 
@@ -168,7 +176,7 @@ struct ScanFlowView: View {
             VStack(spacing: 12) {
                 Image(systemName: "camera.fill")
                     .font(.system(size: 40))
-                    .foregroundColor(Color(hex: "6C63FF"))
+                    .foregroundColor(CartoonTheme.primary)
                 Text("Tap to take a photo of your receipt")
                     .font(.subheadline)
                     .foregroundColor(.primary)
@@ -178,12 +186,12 @@ struct ScanFlowView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 40)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .background(CartoonTheme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [8]))
-                    .foregroundColor(Color(hex: "6C63FF").opacity(0.3))
+                    .foregroundColor(CartoonTheme.primary.opacity(0.35))
             )
         }
     }
@@ -215,8 +223,8 @@ struct ScanFlowView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color(hex: "6C63FF"))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .background(CartoonTheme.buttonGradient)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
                 Button {
@@ -227,8 +235,8 @@ struct ScanFlowView: View {
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color(.systemGray6))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .background(CartoonTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
             .padding(.horizontal)
@@ -259,8 +267,12 @@ struct ScanFlowView: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .background(CartoonTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(CartoonTheme.cardStroke, lineWidth: 1.2)
+        )
     }
 
     // MARK: - Manual Tab
@@ -317,7 +329,15 @@ struct ScanFlowView: View {
                     Text("Purchase Date").font(.caption.weight(.medium)).foregroundColor(.secondary)
                     DatePicker("", selection: Binding(
                         get: { dateFromString(manualPurchase) },
-                        set: { manualPurchase = DateUtils.formatDateForInput($0) }
+                        set: { newDate in
+                            let purchase = DateUtils.formatDateForInput(newDate)
+                            manualPurchase = purchase
+                            let match = ShelfLifeDatabase.lookupProduct(manualName)
+                            let shelfDays = match.confidence == "high"
+                                ? match.shelfDays
+                                : (ShelfLifeDatabase.categoryDefaults[manualCategory] ?? 7)
+                            manualExpiry = DateUtils.expiryDateFromShelfLife(purchaseDate: purchase, shelfDays: shelfDays)
+                        }
                     ), displayedComponents: .date)
                     .labelsHidden()
                 }
@@ -346,8 +366,8 @@ struct ScanFlowView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color(hex: "6C63FF"))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .background(CartoonTheme.buttonGradient)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .padding(.horizontal)
         }
@@ -365,7 +385,8 @@ struct ScanFlowView: View {
 
             processingStage = "Parsing items..."
             let mapped = result.items.map { item in
-                ReviewItem(
+                let shelfDays = resolvedShelfDays(for: item)
+                return ReviewItem(
                     originalText: item.originalText,
                     name: item.name,
                     category: item.category,
@@ -373,9 +394,9 @@ struct ScanFlowView: View {
                     quantity: item.quantity,
                     isPerishable: item.isPerishable,
                     confidence: item.confidence,
-                    shelfDays: item.shelfDays,
+                    shelfDays: shelfDays,
                     purchaseDate: purchaseDateStr,
-                    expiryDate: DateUtils.expiryDateFromCategory(purchaseDate: purchaseDateStr, category: item.category),
+                    expiryDate: DateUtils.expiryDateFromShelfLife(purchaseDate: purchaseDateStr, shelfDays: shelfDays),
                     selected: item.isPerishable
                 )
             }
@@ -423,18 +444,28 @@ struct ScanFlowView: View {
         }
 
         let products = selected.map { item in
-            Product(
+            let shelfDays = resolvedShelfDays(for: item)
+            let accurateExpiry = DateUtils.expiryDateFromShelfLife(purchaseDate: item.purchaseDate, shelfDays: shelfDays)
+            return Product(
                 name: item.name,
                 category: item.category,
                 emoji: item.emoji,
                 quantity: item.quantity,
                 purchaseDate: item.purchaseDate,
-                expiryDate: item.expiryDate
+                expiryDate: accurateExpiry
             )
         }
 
         store.addProducts(products)
         toastManager.show(title: "Items added", message: "\(products.count) item(s) added to dashboard", type: .green)
+        let selectedIDs = Set(selected.map(\.id))
+        allDetectedItems.removeAll { selectedIDs.contains($0.id) }
+        detectedItems.removeAll { selectedIDs.contains($0.id) }
+        if allDetectedItems.isEmpty {
+            resetScan()
+        } else {
+            applyFilter()
+        }
         onProductsAdded()
     }
 
@@ -463,7 +494,7 @@ struct ScanFlowView: View {
         manualQuantity = 1
         manualCategory = "dairy"
         manualPurchase = DateUtils.todayString()
-        manualExpiry = DateUtils.daysFromNow(7)
+        manualExpiry = DateUtils.expiryDateFromCategory(purchaseDate: manualPurchase, category: manualCategory)
         matchHint = ""
         shelfLifeHint = "💡 Estimated shelf life: 7 days (default)"
     }
@@ -471,14 +502,69 @@ struct ScanFlowView: View {
     private func updateManualMatch(_ value: String) {
         guard value.count >= 2 else { matchHint = ""; return }
         let match = ShelfLifeDatabase.lookupProduct(value)
-        if match.confidence == "high" {
-            matchHint = "✅ Matched: \(match.emoji) \(match.name) — \(match.category), ~\(match.shelfDays) days"
+        if match.confidence != "low" {
+            let prefix = match.confidence == "high" ? "✅" : "🟡"
+            matchHint = "\(prefix) Matched: \(match.emoji) \(match.name) — \(match.category), ~\(match.shelfDays) days"
             manualCategory = match.category
-            manualExpiry = DateUtils.expiryDateFromCategory(purchaseDate: manualPurchase, category: match.category)
+            manualExpiry = DateUtils.expiryDateFromShelfLife(purchaseDate: manualPurchase, shelfDays: match.shelfDays)
             shelfLifeHint = "💡 Estimated shelf life: \(match.shelfDays) days (\(match.source))"
         } else {
             matchHint = "⚠️ No exact match — using category default shelf life"
         }
+    }
+
+    private func resolvedShelfDays(for item: OCRItem) -> Int {
+        let byName = ShelfLifeDatabase.lookupProduct(item.name)
+        if byName.confidence != "low" {
+            return byName.shelfDays
+        }
+
+        let byOriginal = ShelfLifeDatabase.lookupProduct(item.originalText)
+        if byOriginal.confidence != "low" {
+            return byOriginal.shelfDays
+        }
+
+        if item.shelfDays > 0 {
+            return item.shelfDays
+        }
+
+        return ShelfLifeDatabase.categoryDefaults[item.category] ?? (ShelfLifeDatabase.categoryDefaults["other"] ?? 7)
+    }
+
+    private func resolvedShelfDays(for item: ReviewItem) -> Int {
+        let byName = ShelfLifeDatabase.lookupProduct(item.name)
+        if byName.confidence != "low" {
+            return byName.shelfDays
+        }
+
+        let byOriginal = ShelfLifeDatabase.lookupProduct(item.originalText)
+        if byOriginal.confidence != "low" {
+            return byOriginal.shelfDays
+        }
+
+        if item.shelfDays > 0 {
+            return item.shelfDays
+        }
+
+        return ShelfLifeDatabase.categoryDefaults[item.category] ?? (ShelfLifeDatabase.categoryDefaults["other"] ?? 7)
+    }
+
+    private func refreshDetectedItemsForPurchaseDate(_ purchaseDate: String) {
+        guard !allDetectedItems.isEmpty else { return }
+
+        syncVisibleEditsIntoAllItems()
+        allDetectedItems = allDetectedItems.map { item in
+            var updated = item
+            updated.purchaseDate = purchaseDate
+            updated.expiryDate = DateUtils.expiryDateFromShelfLife(
+                purchaseDate: purchaseDate,
+                shelfDays: resolvedShelfDays(for: updated)
+            )
+            return updated
+        }
+        detectedItems = includeAll
+            ? allDetectedItems
+            : allDetectedItems.filter { $0.isPerishable }
     }
 
     private func dateFromString(_ str: String) -> Date {
@@ -522,11 +608,17 @@ struct ReviewItemRow: View {
                     item.selected.toggle()
                 } label: {
                     Image(systemName: item.selected ? "checkmark.circle.fill" : "circle")
-                        .foregroundColor(item.selected ? Color(hex: "6C63FF") : .secondary)
+                        .foregroundColor(item.selected ? CartoonTheme.primary : .secondary)
                         .font(.title3)
                 }
 
-                Text(item.emoji).font(.title2)
+                PantryItemIcon(
+                    name: item.name,
+                    emoji: item.emoji,
+                    size: 36,
+                    cornerRadius: 10,
+                    tint: status.status.color
+                )
 
                 TextField("Name", text: $item.name)
                     .font(.subheadline)
@@ -543,8 +635,11 @@ struct ReviewItemRow: View {
                 .pickerStyle(.menu)
                 .labelsHidden()
                 .onChange(of: item.category) { _, newCat in
-                    item.expiryDate = DateUtils.expiryDateFromCategory(purchaseDate: item.purchaseDate, category: newCat)
                     item.shelfDays = ShelfLifeDatabase.categoryDefaults[newCat] ?? 7
+                    item.expiryDate = DateUtils.expiryDateFromShelfLife(
+                        purchaseDate: item.purchaseDate,
+                        shelfDays: item.shelfDays
+                    )
                 }
 
                 Stepper("Qty: \(item.quantity)", value: $item.quantity, in: 1...99)
@@ -582,11 +677,11 @@ struct ReviewItemRow: View {
             }
         }
         .padding(12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(CartoonTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(status.status.color.opacity(0.2), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(status.status.color.opacity(0.35), lineWidth: 1.2)
         )
         .opacity(item.selected ? 1 : 0.6)
     }

@@ -57,10 +57,13 @@ struct ShoppingListView: View {
                         }
                     }
                     .listStyle(.insetGrouped)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
                 }
             }
             .navigationTitle("Shopping List")
             .navigationBarTitleDisplayMode(.large)
+            .cartoonPageBackground()
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Text("\(unpurchased.count) to buy")
@@ -76,13 +79,20 @@ struct ShoppingListView: View {
     private var addItemBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "plus.circle.fill")
-                .foregroundColor(Color(hex: "6C63FF"))
+                .foregroundColor(CartoonTheme.primary)
                 .font(.title3)
 
             TextField("Add an item...", text: $newItemText)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit { addNewItem() }
         }
+        .padding(12)
+        .background(CartoonTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(CartoonTheme.cardStroke, lineWidth: 1.5)
+        )
     }
 
     // MARK: - Shopping Row
@@ -95,13 +105,18 @@ struct ShoppingListView: View {
                 }
             } label: {
                 Image(systemName: isPurchased ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isPurchased ? .green : Color(.systemGray3))
+                    .foregroundColor(isPurchased ? CartoonTheme.primary : Color(.systemGray3))
                     .font(.title3)
             }
             .buttonStyle(.plain)
 
-            Text(item.emoji)
-                .font(.title3)
+            PantryItemIcon(
+                name: item.productName,
+                emoji: item.emoji,
+                size: 34,
+                cornerRadius: 10,
+                tint: CartoonTheme.primary
+            )
 
             Text(item.productName)
                 .font(.subheadline)

@@ -31,7 +31,7 @@ struct RecipeView: View {
             }
             .background(
                 LinearGradient(
-                    colors: [Color(hex: "1A1A2E").opacity(0.05), Color(hex: "6C63FF").opacity(0.03)],
+                    colors: [CartoonTheme.pageTop, CartoonTheme.pageBottom.opacity(0.75)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -51,7 +51,7 @@ struct RecipeView: View {
                         Task { await loadRecipes() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
-                            .foregroundColor(Color(hex: "6C63FF"))
+                            .foregroundColor(CartoonTheme.primary)
                     }
                     .disabled(isLoading)
                 }
@@ -71,7 +71,7 @@ struct RecipeView: View {
                     .font(.title2)
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [Color(hex: "6C63FF"), Color(hex: "A78BFA")],
+                            colors: [CartoonTheme.primary, CartoonTheme.primaryDeep],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
@@ -170,11 +170,11 @@ struct RecipeView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(Color(hex: "6C63FF"))
+                    .background(CartoonTheme.buttonGradient)
                     .clipShape(Capsule())
             }
 
-            Text("Make sure Ollama is running:\nollama serve")
+            Text("Make sure recipe server is running\nor COHERE_API_KEY is configured.")
                 .font(.caption2)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -227,7 +227,7 @@ struct RecipeCard: View {
                 Text(recipe.emoji)
                     .font(.system(size: 28))
                     .frame(width: 44, height: 44)
-                    .background(Color(hex: "6C63FF").opacity(0.1))
+                    .background(CartoonTheme.primary.opacity(0.14))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -255,7 +255,7 @@ struct RecipeCard: View {
                 } label: {
                     Image(systemName: isExpanded ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
                         .font(.title3)
-                        .foregroundColor(Color(hex: "6C63FF"))
+                        .foregroundColor(CartoonTheme.primary)
                 }
             }
 
@@ -266,8 +266,8 @@ struct RecipeCard: View {
                         .font(.caption2)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color(hex: "6C63FF").opacity(0.08))
-                        .foregroundColor(Color(hex: "6C63FF"))
+                        .background(CartoonTheme.primary.opacity(0.12))
+                        .foregroundColor(CartoonTheme.primaryDeep)
                         .clipShape(Capsule())
                 }
             }
@@ -287,7 +287,7 @@ struct RecipeCard: View {
                                 .font(.caption2.weight(.bold))
                                 .foregroundColor(.white)
                                 .frame(width: 20, height: 20)
-                                .background(Color(hex: "6C63FF"))
+                                .background(CartoonTheme.primary)
                                 .clipShape(Circle())
 
                             Text(step)
@@ -304,9 +304,9 @@ struct RecipeCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color(hex: "6C63FF").opacity(0.15), lineWidth: 1)
+                .stroke(CartoonTheme.primary.opacity(0.22), lineWidth: 1.2)
         )
-        .shadow(color: Color(hex: "6C63FF").opacity(0.06), radius: 8, y: 4)
+        .shadow(color: CartoonTheme.primary.opacity(0.08), radius: 8, y: 4)
         .animation(.easeOut(duration: 0.3).delay(Double(index) * 0.1), value: recipe.id)
     }
 

@@ -78,6 +78,7 @@ struct DashboardView: View {
             }
             .navigationTitle("My Pantry")
             .navigationBarTitleDisplayMode(.large)
+            .cartoonPageBackground()
             .alert("Consumed?", isPresented: .init(
                 get: { showConsumeAlert != nil },
                 set: { if !$0 { showConsumeAlert = nil } }
@@ -128,7 +129,7 @@ struct DashboardView: View {
     private var statsRow: some View {
         let s = store.stats
         return HStack(spacing: 10) {
-            StatPill(count: s.green, label: "Fresh", color: .green)
+            StatPill(count: s.green, label: "Fresh", color: CartoonTheme.primary)
             StatPill(count: s.yellow, label: "Soon", color: .orange)
             StatPill(count: s.red, label: "Expired", color: .red)
 
@@ -145,15 +146,9 @@ struct DashboardView: View {
                 .foregroundColor(.white)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(
-                    LinearGradient(
-                        colors: [Color(hex: "6C63FF"), Color(hex: "A78BFA")],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
+                .background(CartoonTheme.buttonGradient)
                 .clipShape(Capsule())
-                .shadow(color: Color(hex: "6C63FF").opacity(0.3), radius: 4, y: 2)
+                .shadow(color: CartoonTheme.primary.opacity(0.3), radius: 4, y: 2)
             }
         }
     }
@@ -176,14 +171,19 @@ struct DashboardView: View {
     private var searchBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
+                .foregroundColor(CartoonTheme.title.opacity(0.5))
             TextField("Search products...", text: $searchQuery)
                 .textInputAutocapitalization(.never)
+                .foregroundStyle(CartoonTheme.title)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(CartoonTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(CartoonTheme.cardStroke, lineWidth: 1.5)
+        )
     }
 
     // MARK: - Empty States
@@ -193,6 +193,7 @@ struct DashboardView: View {
             Text("📦").font(.system(size: 48))
             Text("No products yet")
                 .font(.headline)
+                .foregroundColor(CartoonTheme.title)
             Text("Scan a receipt or add items manually")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
@@ -254,12 +255,16 @@ struct StatPill: View {
                 .foregroundColor(color)
             Text(label)
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundColor(CartoonTheme.title.opacity(0.65))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(color.opacity(0.1))
+        .background(color.opacity(0.16))
         .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(color.opacity(0.3), lineWidth: 1)
+        )
     }
 }
 
@@ -276,9 +281,13 @@ struct FilterChip: View {
                 .font(.caption.weight(.semibold))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .foregroundColor(isActive ? .white : .secondary)
-                .background(isActive ? Color(hex: "6C63FF") : Color(.systemGray6))
+                .foregroundColor(isActive ? .white : CartoonTheme.title.opacity(0.7))
+                .background(isActive ? CartoonTheme.primary : Color.white.opacity(0.85))
                 .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(isActive ? Color.clear : CartoonTheme.cardStroke, lineWidth: 1)
+                )
         }
     }
 }

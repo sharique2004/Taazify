@@ -29,6 +29,7 @@ class StoreManager: ObservableObject {
 
     func initialize() {
         loadLocalState()
+        refreshExpiryAccuracyForExistingItems()
         if products.isEmpty {
             products = SampleData.products
         }
@@ -133,5 +134,42 @@ class StoreManager: ObservableObject {
         saveLocalState()
     }
 
+    // Improve previously saved default expiries using current product matching rules.
+    private func refreshExpiryAccuracyForExistingItems() {
+        guard !products.isEmpty else { return }
+
+        let otherDefault = ShelfLifeDatabase.categoryDefaults["other"] ?? 7
+
+        for index in products.indices {
+            guard products[index].isActive else { continue }
+
+            let match = ShelfLifeDatabase.lookupProduct(products[index].name)
+            guard match.confidence != "low" else { continue }
+
+            let currentSpan = DateUtils.daysBetween(
+                startDate: products[index].purchaseDate,
+                endDate: products[index].expiryDate
+            )
+
+            let categoryDefault = ShelfLifeDatabase.categoryDefaults[products[index].category] ?? otherDefault
+            let likelyFallback = currentSpan == nil || currentSpan == categoryDefault || currentSpan == otherDefault
+            let largeMismatch = {
+                guard let span = currentSpan else { return true }
+                return abs(span - match.shelfDays) >= 5
+            }()
+
+            guard likelyFallback || largeMismatch else { continue }
+
+            products[index].expiryDate = DateUtils.expiryDateFromShelfLife(
+                purchaseDate: products[index].purchaseDate,
+                shelfDays: match.shelfDays
+            )
+
+            if match.confidence == "high" {
+                products[index].category = match.category
+                products[index].emoji = match.emoji
+            }
+        }
+    }
 
 }

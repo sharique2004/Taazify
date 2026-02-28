@@ -29,6 +29,7 @@ struct ContentView: View {
             .padding(.bottom, 100)
             .animation(.spring(response: 0.4, dampingFraction: 0.8), value: toastManager.toasts)
         }
+        .fontDesign(.rounded)
     }
 
     private var mainTabView: some View {
@@ -61,6 +62,8 @@ struct ContentView: View {
                 }
                 .tag(Tab.profile)
         }
-        .tint(Color(hex: "6C63FF"))
+        .tint(CartoonTheme.primary)
+        .toolbarBackground(Color.white.opacity(0.9), for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
     }
 }

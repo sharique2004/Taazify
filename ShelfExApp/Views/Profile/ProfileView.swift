@@ -28,9 +28,6 @@ struct ProfileView: View {
                     // Stats Grid
                     statsGrid
 
-                    // Theme Toggle
-                    themeToggle
-
                     // Grocery History
                     historySection
                 }
@@ -39,6 +36,7 @@ struct ProfileView: View {
             }
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
+            .cartoonPageBackground()
         }
     }
 
@@ -53,7 +51,7 @@ struct ProfileView: View {
                 .frame(width: 56, height: 56)
                 .background(
                     LinearGradient(
-                        colors: [Color(hex: "6C63FF"), Color(hex: "8B5CF6")],
+                        colors: [CartoonTheme.primary, CartoonTheme.primaryDeep],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -78,39 +76,23 @@ struct ProfileView: View {
             Spacer()
         }
         .padding(16)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(CartoonTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(CartoonTheme.cardStroke, lineWidth: 1.5)
+        )
     }
 
     // MARK: - Stats Grid
 
     private var statsGrid: some View {
         HStack(spacing: 12) {
-            ProfileStatItem(value: "\(active.count)", label: "Active", color: Color(hex: "6C63FF"))
-            ProfileStatItem(value: "\(consumed)", label: "Consumed", color: .green)
+            ProfileStatItem(value: "\(active.count)", label: "Active", color: CartoonTheme.primaryDeep)
+            ProfileStatItem(value: "\(consumed)", label: "Consumed", color: CartoonTheme.primary)
             ProfileStatItem(value: "\(wasted)", label: "Wasted", color: .red)
             ProfileStatItem(value: "\(usageRate)%", label: "Usage", color: .primary)
         }
-    }
-
-    // MARK: - Theme Toggle
-
-    private var themeToggle: some View {
-        HStack {
-            Image(systemName: store.prefersDarkMode ? "sun.max.fill" : "moon.fill")
-                .foregroundColor(store.prefersDarkMode ? .orange : .indigo)
-            Text(store.prefersDarkMode ? "Light Mode" : "Dark Mode")
-                .font(.subheadline)
-            Spacer()
-            Toggle("", isOn: Binding(
-                get: { store.prefersDarkMode },
-                set: { _ in store.toggleTheme() }
-            ))
-            .labelsHidden()
-        }
-        .padding(14)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
     // MARK: - History
@@ -130,8 +112,8 @@ struct ProfileView: View {
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .background(CartoonTheme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             } else {
                 ForEach(history, id: \.date) { group in
                     VStack(alignment: .leading, spacing: 6) {
@@ -141,7 +123,13 @@ struct ProfileView: View {
 
                         ForEach(group.items) { item in
                             HStack(spacing: 8) {
-                                Text(item.emoji)
+                                PantryItemIcon(
+                                    name: item.name,
+                                    emoji: item.emoji,
+                                    size: 30,
+                                    cornerRadius: 8,
+                                    tint: CartoonTheme.primary
+                                )
                                 Text(item.name)
                                     .font(.subheadline)
                                 Spacer()
@@ -156,8 +144,12 @@ struct ProfileView: View {
                         }
                     }
                     .padding(12)
-                    .background(.ultraThinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .background(CartoonTheme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(CartoonTheme.cardStroke, lineWidth: 1.2)
+                    )
                 }
             }
         }
@@ -182,7 +174,11 @@ struct ProfileStatItem: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(CartoonTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(CartoonTheme.cardStroke, lineWidth: 1.2)
+        )
     }
 }

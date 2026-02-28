@@ -82,10 +82,10 @@ enum OCRService {
         if result.isNonFood { return nil }
 
         let match = ShelfLifeDatabase.lookupProduct(result.normalized)
-        let rawMatch = match.confidence != "high" ? ShelfLifeDatabase.lookupProduct(name) : match
-        let bestMatch = rawMatch.confidence == "high" ? rawMatch : match
+        let rawMatch = match.confidence == "high" ? match : ShelfLifeDatabase.lookupProduct(name)
+        let bestMatch = confidenceRank(rawMatch.confidence) > confidenceRank(match.confidence) ? rawMatch : match
 
-        let isKnownPantryItem = bestMatch.confidence == "high"
+        let isKnownPantryItem = bestMatch.confidence != "low"
 
         // If not a known product, check if it at least looks like a product line
         // This filters out random receipt text that the server mistakenly returns
@@ -106,16 +106,24 @@ enum OCRService {
 
         let quantity = parseInt(item["quantity"]) ?? 1
         let price = parseDouble(item["price"])
+        
+        let serverShelfDays = parseInt(item["shelfDays"]) ?? 0
+        let inferredCategory = bestMatch.category
+        let inferredCategoryDays = ShelfLifeDatabase.categoryDefaults[inferredCategory] ?? (ShelfLifeDatabase.categoryDefaults["other"] ?? 7)
+        let finalShelfDays = isKnownPantryItem
+            ? bestMatch.shelfDays
+            : (serverShelfDays > 0 ? serverShelfDays : inferredCategoryDays)
+        let finalIsPerishable = isKnownPantryItem || serverShelfDays > 0 || inferredCategory != "other"
 
         return OCRItem(
             originalText: name,
             name: displayName,
-            category: isKnownPantryItem ? bestMatch.category : "other",
-            emoji: isKnownPantryItem ? bestMatch.emoji : "📦",
-            confidence: isKnownPantryItem ? "high" : "low",
-            isPerishable: isKnownPantryItem,
+            category: inferredCategory,
+            emoji: isKnownPantryItem ? bestMatch.emoji : ShelfLifeDatabase.emojiForCategory(inferredCategory),
+            confidence: bestMatch.confidence,
+            isPerishable: finalIsPerishable,
             quantity: max(1, quantity),
-            shelfDays: isKnownPantryItem ? bestMatch.shelfDays : (ShelfLifeDatabase.categoryDefaults["other"] ?? 7),
+            shelfDays: finalShelfDays,
             price: price
         )
     }
@@ -144,6 +152,14 @@ enum OCRService {
             return Double(stringValue)
         }
         return nil
+    }
+
+    private static func confidenceRank(_ confidence: String) -> Int {
+        switch confidence {
+        case "high": return 3
+        case "medium": return 2
+        default: return 1
+        }
     }
 
     // MARK: - Fallback: Apple Vision On-Device OCR
@@ -187,12 +203,11 @@ enum OCRService {
                     let match = ShelfLifeDatabase.lookupProduct(result.normalized)
 
                     // Also try the raw text (some receipt lines match better un-normalized)
-                    let rawMatch = match.confidence != "high" ? ShelfLifeDatabase.lookupProduct(cleaned) : match
-                    let bestMatch = rawMatch.confidence == "high" ? rawMatch : match
+                    let rawMatch = match.confidence == "high" ? match : ShelfLifeDatabase.lookupProduct(cleaned)
+                    let bestMatch = confidenceRank(rawMatch.confidence) > confidenceRank(match.confidence) ? rawMatch : match
 
-                    // ONLY include items that matched a known product
-                    // This is the key filter — if we don't recognize it, skip it
-                    guard bestMatch.confidence == "high" else { continue }
+                    // Prefer known items, but keep medium-confidence matches for better coverage.
+                    guard bestMatch.confidence != "low" else { continue }
 
                     let displayName = result.brand != nil ? "\(result.brand!) \(bestMatch.name)" : bestMatch.name
 
@@ -201,7 +216,7 @@ enum OCRService {
                         name: displayName,
                         category: bestMatch.category,
                         emoji: bestMatch.emoji,
-                        confidence: "high",
+                        confidence: bestMatch.confidence,
                         isPerishable: true,
                         quantity: 1,
                         shelfDays: bestMatch.shelfDays,
